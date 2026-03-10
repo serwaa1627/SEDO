@@ -1,7 +1,9 @@
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import UserMixin
+from flask_bcrypt import Bcrypt
 
 db = SQLAlchemy()
+bcrypt = Bcrypt()
 
 class User(db.Model, UserMixin):
     id = db.Column(db.Integer, primary_key=True)
@@ -12,6 +14,14 @@ class User(db.Model, UserMixin):
 
     def is_admin(self):
         return self.role == 'admin'
+
+    def check_password(self, password):
+        """Verify a plaintext password against the stored hash."""
+        return bcrypt.check_password_hash(self.password, password)
+
+    def set_password(self, password):
+        """Hash and store a new password."""
+        self.password = bcrypt.generate_password_hash(password).decode('utf-8')
 
 class Ticket(db.Model):
     id = db.Column(db.Integer, primary_key=True)

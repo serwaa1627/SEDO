@@ -1,0 +1,29 @@
+# Environment variables - never commit real secrets
+.env
+
+# SQLite database - kept out of version control
+instance/
+*.db
+
+# Python cache
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+
+# Virtual environment
+venv/
+.venv/
+env/
+
+# Logs
+logs/
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/

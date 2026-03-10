@@ -4,15 +4,24 @@ from flask_login import UserMixin, login_user, LoginManager, login_required, log
 from flask_wtf import FlaskForm
 from wtforms import StringField, PasswordField, SubmitField
 from wtforms.validators import InputRequired, Length, ValidationError, DataRequired, EqualTo
-from flask_bcrypt import Bcrypt
-from models import db, User, Ticket 
+from models import db, bcrypt, User, Ticket
+from dotenv import load_dotenv
+import os
 import random
 
+load_dotenv()
+
 app = Flask(__name__)
-bcrypt = Bcrypt(app)
+bcrypt.init_app(app)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['SECRET_KEY'] = 'thisisasecretkey'
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'fallback-dev-key-change-in-production')
+
+# Secure session cookie settings (OWASP A02)
+app.config['SESSION_COOKIE_HTTPONLY'] = True   # Prevent JS access to session cookie
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'  # CSRF protection for cookies
+app.config['SESSION_COOKIE_SECURE'] = os.environ.get('FLASK_ENV') == 'production'  # HTTPS only in prod
+
 db.init_app(app)
 
 
