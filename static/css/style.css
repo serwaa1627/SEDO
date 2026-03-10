@@ -1,0 +1,171 @@
+/*  Global */
+body {
+  background-color: #f0f2f5;
+  font-family: 'Inter', sans-serif;
+}
+
+h2 {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+label {
+  font-weight: 600;
+}
+
+/*  Navbar  */
+.navbar {
+  background-color: #212529;
+}
+
+.navbar-brand {
+  font-weight: bold;
+  font-size: 1.25rem;
+  color: black;
+}
+
+.dropdown-menu {
+  background-color: #fff;
+  min-width: 180px;
+}
+
+.dropdown-toggle {
+  border-radius: 10px;
+}
+
+.dropdown-item {
+  font-size: 1rem;
+}
+
+.dropdown-item:hover {
+  background-color: #f8f9fa;
+}
+
+/*  Page card wrappers (form/detail pages)  */
+.page-card {
+  max-width: 600px;
+  background: #ffffff;
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0px 6px 16px rgba(0, 0, 0, 0.1);
+  margin-top: 40px;
+}
+
+.page-card-sm {
+  max-width: 500px;
+  background: #ffffff;
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0px 6px 16px rgba(0, 0, 0, 0.1);
+  margin-top: 40px;
+}
+
+/*  Register page  */
+.register-container {
+  max-width: 400px;
+  margin: auto;
+  margin-top: 80px;
+  padding: 20px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);
+}
+
+.login-link {
+  display: block;
+  text-align: center;
+  margin-top: 10px;
+}
+
+/*  Dashboard  */
+.dashboard-card {
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.1);
+  padding: 25px;
+  margin-top: 40px;
+}
+
+.dashboard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.table th {
+  color: black;
+}
+
+.status-pill, .priority-pill {
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 0.85em;
+}
+
+.status-open { background-color: #dc3545; color: white; }
+.status-in-progress { background-color: #ffc107; color: black; }
+.status-resolved { background-color: #198754; color: white; }
+.priority-high { background-color: #dc3545; color: white; }
+.priority-medium { background-color: #ffcc00; color: black; }
+.priority-low { background-color: #6c757d; color: white; }
+
+.btn-new-ticket {
+  border-radius: 10px;
+  background-color: #198754;
+  color: white;
+}
+
+.btn-new-ticket:hover {
+  background-color: #157347;
+  color: white;
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+}
+
+/*  Buttons  */
+.btn-primary, .btn-secondary, .btn-success {
+  border-radius: 8px;
+}
+
+.btn-success {
+  background-color: #198754;
+}
+
+.btn-success:hover {
+  background-color: #157347;
+}
+
+/*  Form elements  */
+.form-control {
+  border-radius: 5px;
+}
+
+.form-select:disabled {
+  background-color: #ffffff;
+  cursor: not-allowed;
+  opacity: 1;
+}
+
+/*  Account settings  */
+.account-info {
+  font-size: 1.1rem;
+  margin-bottom: 15px;
+}
+
+/*  View ticket  */
+.label-title {
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.ticket-detail {
+  margin-bottom: 1.5rem;
+}
+
+.preserve-lines {
+  white-space: pre-line;
+}

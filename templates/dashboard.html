@@ -5,75 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Help Desk Dashboard</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" />
-  <style>
-    body {
-      background-color: #f0f2f5;
-      font-family: 'Inter', sans-serif;
-    }
-    .navbar {
-      background-color: #212529;
-    }
-    .navbar-brand {
-      font-weight: bold;
-      color: #f8f9fa;
-    }
-    .dashboard-card {
-      background: #ffffff;
-      border-radius: 12px;
-      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.1);
-      padding: 25px;
-      margin-top: 40px;
-    }
-    .dashboard-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 20px;
-    }
-    .table th {
-      color: black;
-    }
-    .status-pill, .priority-pill {
-      padding: 6px 14px;
-      border-radius: 20px;
-      font-size: 0.85em;
-    }
-    .status-open { background-color: #dc3545; color: white; }
-    .status-in-progress { background-color: #ffc107; color: black; }
-    .status-resolved { background-color: #198754; color: white; }
-    .priority-high { background-color: #dc3545; color: white; }
-    .priority-medium { background-color: #ffcc00; color: black; }
-    .priority-low { background-color: #6c757d; color: white; }
-    .btn-new-ticket {
-      border-radius: 10px;
-      background-color: #198754;
-      color: white;
-    }
-    .btn-new-ticket:hover {
-      background-color: #157347;
-    }
-    .actions {
-      display: flex;
-      gap: 8px;
-    }
-    .navbar-brand {
-    font-size: 1.25rem;
-    color: black;
-    }
-    .dropdown-menu {
-        background-color: #fff;
-        min-width: 180px;
-    }
-    .dropdown-toggle {
-        border-radius: 10px;
-    }
-    .dropdown-item {
-        font-size: 1rem;
-    }
-    .dropdown-item:hover {
-        background-color: #f8f9fa;
-    }
-  </style>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
 {% include "navbar.html" %}
@@ -141,8 +73,8 @@
                   {{ ticket.description[:100] }}{% if ticket.description|length > 100 %}...{% endif %}
                 </td>
                 <td>
-                  <span class="priority-pill {% if ticket.priority == 'High' %} priority-high 
-                    {% elif ticket.priority == 'Medium' %} priority-medium 
+                  <span class="priority-pill {% if ticket.priority == 'High' %} priority-high
+                    {% elif ticket.priority == 'Medium' %} priority-medium
                     {% else %} priority-low {% endif %}">
                     {{ ticket.priority }}
                   </span>
@@ -161,7 +93,8 @@
                 <td class="actions">
                   <a href="{{ url_for('view_ticket', ticket_id=ticket.id) }}" class="btn btn-info btn-sm">View</a>
                   <a href="{{ url_for('edit_ticket', ticket_id=ticket.id) }}" class="btn btn-sm btn-outline-secondary">Edit</a>
-                  <form method="POST" action="{{ url_for('delete_ticket', ticket_id=ticket.id) }}" class="d-inline" onsubmit="return confirmDelete();">
+                  <form method="POST" action="{{ url_for('delete_ticket', ticket_id=ticket.id) }}" class="d-inline delete-form">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
                   </form>
                 </td>
@@ -178,12 +111,7 @@
     </div>
   </div>
 
-  <script>
-    function confirmDelete() {
-      return confirm("Are you sure you want to delete this ticket?");
-    }
-  </script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-
+  <script src="{{ url_for('static', filename='js/app.js') }}"></script>
 </body>
 </html>

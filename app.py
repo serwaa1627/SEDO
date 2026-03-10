@@ -1,20 +1,36 @@
-from flask import Flask, render_template, url_for, redirect, flash, request
+from flask import Flask, render_template, url_for, redirect, flash, request, abort
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import UserMixin, login_user, LoginManager, login_required, logout_user, current_user
 from flask_wtf import FlaskForm
 from wtforms import StringField, PasswordField, SubmitField
 from wtforms.validators import InputRequired, Length, ValidationError, DataRequired, EqualTo
-from flask_bcrypt import Bcrypt
-from models import db, User, Ticket 
+from models import db, bcrypt, User, Ticket
+from dotenv import load_dotenv
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
+from flask_wtf.csrf import CSRFProtect
+import os
 import random
 
+load_dotenv()
+
 app = Flask(__name__)
-bcrypt = Bcrypt(app)
+bcrypt.init_app(app)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['SECRET_KEY'] = 'thisisasecretkey'
-db.init_app(app)
+# Secret key loaded from environment variable so it's never hardcoded in source code (OWASP A02)
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'fallback-dev-key-change-in-production')
 
+# Session cookie settings to protect against common attacks (OWASP A02)
+app.config['SESSION_COOKIE_HTTPONLY'] = True   # Stops JavaScript from reading the session cookie
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'  # Helps prevent cross-site request forgery
+app.config['SESSION_COOKIE_SECURE'] = os.environ.get('FLASK_ENV') == 'production'  # HTTPS only in production
+
+db.init_app(app)
+CSRFProtect(app)  # Makes csrf_token() available in all templates for non-form POST requests
+
+# Rate limiter using the requester's IP address to track attempts (OWASP A07)
+limiter = Limiter(get_remote_address, app=app, default_limits=[])
 
 login_manager = LoginManager(app)
 login_manager.login_view = 'login'
@@ -23,6 +39,25 @@ login_manager.login_view = 'login'
 @login_manager.user_loader
 def load_user(user_id):
     return db.session.get(User, int(user_id))
+
+
+# Add security headers to every response to protect against common browser-based attacks (OWASP A05)
+@app.after_request
+def set_security_headers(response):
+    response.headers['X-Frame-Options'] = 'DENY'  # Stops the app being embedded in iframes (clickjacking)
+    response.headers['X-Content-Type-Options'] = 'nosniff'  # Stops browsers guessing file types
+    response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'  # Limits URL info shared with third parties
+    response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'  # Forces HTTPS on live deployment
+    # Only allow scripts and styles from this app and the Bootstrap CDN
+    response.headers['Content-Security-Policy'] = (
+        "default-src 'self'; "
+        "script-src 'self' cdn.jsdelivr.net; "
+        "style-src 'self' cdn.jsdelivr.net; "
+        "font-src 'self' cdn.jsdelivr.net; "
+        "img-src 'self' data:; "
+        "object-src 'none';"
+    )
+    return response
 
 class RegisterForm(FlaskForm):
     username = StringField(validators=[
@@ -122,6 +157,7 @@ def dashboard():
     return render_template('dashboard.html', tickets=tickets)
 
 @app.route('/login', methods=['GET', 'POST'])
+@limiter.limit("5 per minute", methods=["POST"])  # Block brute force attacks - max 5 login attempts per minute (OWASP A07)
 def login():
     form = LoginForm()
     if form.validate_on_submit():
@@ -133,6 +169,12 @@ def login():
                 login_user(user)
                 return redirect(url_for('dashboard'))
     return render_template('login.html', form=form)
+
+@app.errorhandler(429)
+def too_many_requests(_):
+    # Shown when a user exceeds 5 login attempts in a minute
+    flash('Too many login attempts. Please wait a minute before trying again.', 'danger')
+    return render_template('login.html', form=LoginForm()), 429
 
 
 @app.route('/login-success')
@@ -187,10 +229,9 @@ def new_ticket():
 def edit_ticket(ticket_id):
     ticket = Ticket.query.get_or_404(ticket_id)
 
-    # Ensure only the owner or admin can edit
+    # Ensure only the owner or admin can edit (OWASP A01)
     if not (current_user.is_admin() or ticket.user_id == current_user.id):
-        flash('Unauthorised access.', 'danger')
-        return redirect(url_for('dashboard'))
+        abort(403)
 
     if request.method == 'POST':
         ticket.title = request.form['title']
@@ -241,9 +282,67 @@ def account_settings():
 def view_ticket(ticket_id):
     ticket = Ticket.query.get_or_404(ticket_id)
     if not (current_user.is_admin() or ticket.user_id == current_user.id):
-        flash('Unauthorised access.', 'danger')
-        return redirect(url_for('dashboard'))
+        abort(403)  # Proper 403 instead of silent redirect (OWASP A01)
     return render_template('view_ticket.html', ticket=ticket)
+
+# Custom error pages so users see a message instead of a HTTP error (OWASP A01/A05)
+@app.errorhandler(403)
+def forbidden(_):
+    return render_template('403.html'), 403
+
+@app.errorhandler(404)
+def not_found(_):
+    return render_template('404.html'), 404
+
+@app.errorhandler(500)
+def server_error(_):
+    return render_template('500.html'), 500
+
+
+@app.route('/admin/users')
+@login_required
+def admin_users():
+    # Only admins can access this page (OWASP A01)
+    if not current_user.is_admin():
+        abort(403)
+    query = User.query.filter_by(is_deleted=False)
+    role = request.args.get('role')
+    if role in ('user', 'admin'):
+        query = query.filter_by(role=role)
+    users = query.all()
+    return render_template('admin_users.html', users=users)
+
+
+@app.route('/admin/users/<int:user_id>/toggle_role', methods=['POST'])
+@login_required
+def toggle_role(user_id):
+    if not current_user.is_admin():
+        abort(403)
+    user = User.query.get_or_404(user_id)
+    # Prevent admins from demoting themselves
+    if user.id == current_user.id:
+        flash("You can't change your own role.", 'warning')
+        return redirect(url_for('admin_users'))
+    user.role = 'user' if user.role == 'admin' else 'admin'
+    db.session.commit()
+    flash(f"{user.username}'s role updated to {user.role}.", 'success')
+    return redirect(url_for('admin_users'))
+
+
+@app.route('/admin/users/<int:user_id>/delete', methods=['POST'])
+@login_required
+def admin_delete_user(user_id):
+    if not current_user.is_admin():
+        abort(403)
+    user = User.query.get_or_404(user_id)
+    if user.id == current_user.id:
+        flash("You can't delete your own account here.", 'warning')
+        return redirect(url_for('admin_users'))
+    user.is_deleted = True  # Soft delete keeps the audit trail intact
+    db.session.commit()
+    flash(f"{user.username} has been removed.", 'success')
+    return redirect(url_for('admin_users'))
+
 
 if __name__ == "__main__":
     with app.app_context():
