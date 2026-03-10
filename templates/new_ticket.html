@@ -13,6 +13,7 @@
     <div class="container page-card">
         <h2 class="text-center">Create New Ticket</h2>
         <form method="POST" enctype="multipart/form-data">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <div class="mb-3">
                 <label for="title" class="form-label">Title</label>
                 <input type="text" name="title" class="form-control" required>

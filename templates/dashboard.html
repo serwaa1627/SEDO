@@ -94,6 +94,7 @@
                   <a href="{{ url_for('view_ticket', ticket_id=ticket.id) }}" class="btn btn-info btn-sm">View</a>
                   <a href="{{ url_for('edit_ticket', ticket_id=ticket.id) }}" class="btn btn-sm btn-outline-secondary">Edit</a>
                   <form method="POST" action="{{ url_for('delete_ticket', ticket_id=ticket.id) }}" class="d-inline delete-form">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
                   </form>
                 </td>
