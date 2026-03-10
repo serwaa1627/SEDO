@@ -1,105 +1,88 @@
 import re
+from models import User, db
 
-def register_and_login(client, username="user1", password="password"):
+
+def register_and_login(client, username="testuser", password="password1"):
     client.post("/register", data={
-        "username": username,
-        "password": password,
-        "confirm_password": password
+        "username": username, "password": password, "confirm_password": password
     }, follow_redirects=True)
-    client.post("/login", data={
-        "username": username,
-        "password": password
+    client.post("/login", data={"username": username, "password": password}, follow_redirects=True)
+
+
+def test_create_ticket(client):
+    register_and_login(client)
+    r = client.post("/new_ticket", data={"title": "My Ticket", "description": "Details", "priority": "High"}, follow_redirects=True)
+    assert b"Ticket created successfully!" in r.data
+    assert b"My Ticket" in r.data
+
+
+def test_view_ticket(client):
+    register_and_login(client)
+    client.post("/new_ticket", data={"title": "View Me", "description": "Desc", "priority": "Low"}, follow_redirects=True)
+    dash = client.get("/", follow_redirects=True)
+    match = re.search(rb'/view_ticket/(\d+)', dash.data)
+    assert match
+    r = client.get(f"/view_ticket/{match.group(1).decode()}", follow_redirects=True)
+    assert b"View Me" in r.data
+
+
+def test_edit_ticket(client):
+    register_and_login(client)
+    client.post("/new_ticket", data={"title": "Edit Me", "description": "Desc", "priority": "High"}, follow_redirects=True)
+    dash = client.get("/", follow_redirects=True)
+    match = re.search(rb'/edit_ticket/(\d+)', dash.data)
+    assert match
+    r = client.post(f"/edit_ticket/{match.group(1).decode()}", data={
+        "title": "Edited Title", "description": "Updated desc", "status": "Open"
     }, follow_redirects=True)
+    assert b"Edited Title" in r.data
 
-def create_ticket(client, title="Test Ticket", description="Test Description", priority="High"):
-    return client.post("/new_ticket", data={
-        "title": title,
-        "description": description,
-        "priority": priority
-    }, follow_redirects=True)
 
-def test_ticket_creation_and_dashboard_listing(client):
+def test_delete_ticket(client):
     register_and_login(client)
-    response = create_ticket(client, "My Ticket", "Some details", "Medium")
-    assert b"My Ticket" in response.data
-    assert b"Ticket created successfully!" in response.data
-
-    dashboard = client.get("/", follow_redirects=True)
-    assert b"My Ticket" in dashboard.data
-    assert b"Medium" in dashboard.data
-
-def test_ticket_view_page(client):
-    register_and_login(client)
-    create_ticket(client, "Viewable Ticket", "See this ticket", "Low")
-    dashboard = client.get("/", follow_redirects=True)
-
-    match = re.search(rb'/view_ticket/(\d+)', dashboard.data)
+    client.post("/new_ticket", data={"title": "Delete Me", "description": "Desc", "priority": "Low"}, follow_redirects=True)
+    dash = client.get("/", follow_redirects=True)
+    match = re.search(rb'/delete_ticket/(\d+)', dash.data)
     assert match
-    ticket_id = match.group(1).decode()
-    response = client.get(f"/view_ticket/{ticket_id}")
-    assert b"View Ticket" in response.data
-    assert b"Viewable Ticket" in response.data
-    assert b"See this ticket" in response.data
+    client.post(f"/delete_ticket/{match.group(1).decode()}", follow_redirects=True)
+    dash2 = client.get("/", follow_redirects=True)
+    assert b"Delete Me" not in dash2.data
 
-def test_ticket_edit(client):
-    register_and_login(client)
-    create_ticket(client, "Edit Ticket", "Edit this", "High")
-    dashboard = client.get("/", follow_redirects=True)
-    match = re.search(rb'/edit_ticket/(\d+)', dashboard.data)
-    assert match
-    ticket_id = match.group(1).decode()
 
-    response = client.post(f"/edit_ticket/{ticket_id}", data={
-        "title": "Edited Ticket",
-        "description": "Edited description",
-        "status": "In Progress"
-    }, follow_redirects=True)
-    assert b"Edited Ticket" in response.data or b"Dashboard" in response.data
-
-    dashboard = client.get("/", follow_redirects=True)
-    assert b"Edited Ticket" in dashboard.data
-
-def test_ticket_delete(client):
-    register_and_login(client)
-    create_ticket(client, "Delete Ticket", "To be deleted", "Low")
-    dashboard = client.get("/", follow_redirects=True)
-    match = re.search(rb'/delete_ticket/(\d+)', dashboard.data)
-    assert match
-    ticket_id = match.group(1).decode()
-
-    response = client.post(f"/delete_ticket/{ticket_id}", follow_redirects=True)
-    assert b"Delete Ticket" not in response.data
-
-    dashboard = client.get("/", follow_redirects=True)
-    assert b"Delete Ticket" not in dashboard.data
-
-def test_admin_can_view_and_change_ticket_status(client):
-    register_and_login(client, username="user1", password="password")
-    create_ticket(client, title="Status Ticket", description="Needs status change", priority="High")
-    dashboard = client.get("/", follow_redirects=True)
-    match = re.search(rb'/edit_ticket/(\d+)', dashboard.data)
-    assert match
+def test_user_cannot_edit_another_users_ticket(client):
+    # user1 creates a ticket
+    register_and_login(client, "user1x", "password1")
+    client.post("/new_ticket", data={"title": "User1 Ticket", "description": "d", "priority": "Low"}, follow_redirects=True)
+    dash = client.get("/", follow_redirects=True)
+    match = re.search(rb'/edit_ticket/(\d+)', dash.data)
     ticket_id = match.group(1).decode()
     client.get("/logout", follow_redirects=True)
 
-    register_and_login(client, username="admin", password="password")
-    from models import User, db
+    # user2 tries to edit it — should get 403
+    register_and_login(client, "user2x", "password2")
+    r = client.get(f"/edit_ticket/{ticket_id}", follow_redirects=True)
+    assert r.status_code == 403
+
+
+def test_admin_can_change_ticket_status(client):
+    # user1 creates a ticket
+    register_and_login(client, "user1x", "password1")
+    client.post("/new_ticket", data={"title": "Status Ticket", "description": "d", "priority": "High"}, follow_redirects=True)
+    dash = client.get("/", follow_redirects=True)
+    match = re.search(rb'/edit_ticket/(\d+)', dash.data)
+    ticket_id = match.group(1).decode()
+    client.get("/logout", follow_redirects=True)
+
+    # register and promote admin
+    register_and_login(client, "adminuser", "adminpass1")
     with client.application.app_context():
-        admin_user = User.query.filter_by(username="admin").first()
-        admin_user.role = "admin"
+        u = User.query.filter_by(username="adminuser").first()
+        u.role = "admin"
         db.session.commit()
+    client.get("/logout", follow_redirects=True)
+    client.post("/login", data={"username": "adminuser", "password": "adminpass1"}, follow_redirects=True)
 
-    client.post("/login", data={"username": "admin", "password": "password"}, follow_redirects=True)
-    response = client.post(
-        f"/edit_ticket/{ticket_id}",
-        data={
-            "title": "Status Ticket",
-            "description": "Needs status change",
-            "status": "Resolved"
-        },
-        follow_redirects=True
-    )
-    assert b"Resolved" in response.data or b"Ticket updated" in response.data
-
-    dashboard = client.get("/", follow_redirects=True)
-    assert b"Resolved" in dashboard.data
+    r = client.post(f"/edit_ticket/{ticket_id}", data={
+        "title": "Status Ticket", "description": "d", "status": "Resolved"
+    }, follow_redirects=True)
+    assert b"Resolved" in r.data

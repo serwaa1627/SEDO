@@ -157,7 +157,7 @@ def dashboard():
     return render_template('dashboard.html', tickets=tickets)
 
 @app.route('/login', methods=['GET', 'POST'])
-@limiter.limit("5 per minute")  # Block brute force attacks - max 5 login attempts per minute (OWASP A07)
+@limiter.limit("5 per minute", methods=["POST"])  # Block brute force attacks - max 5 login attempts per minute (OWASP A07)
 def login():
     form = LoginForm()
     if form.validate_on_submit():
