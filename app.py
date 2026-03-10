@@ -15,12 +15,13 @@ app = Flask(__name__)
 bcrypt.init_app(app)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+# Secret key loaded from environment variable so it's never hardcoded in source code (OWASP A02)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'fallback-dev-key-change-in-production')
 
-# Secure session cookie settings (OWASP A02)
-app.config['SESSION_COOKIE_HTTPONLY'] = True   # Prevent JS access to session cookie
-app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'  # CSRF protection for cookies
-app.config['SESSION_COOKIE_SECURE'] = os.environ.get('FLASK_ENV') == 'production'  # HTTPS only in prod
+# Session cookie settings to protect against common attacks (OWASP A02)
+app.config['SESSION_COOKIE_HTTPONLY'] = True   # Stops JavaScript from reading the session cookie
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'  # Helps prevent cross-site request forgery
+app.config['SESSION_COOKIE_SECURE'] = os.environ.get('FLASK_ENV') == 'production'  # HTTPS only in production
 
 db.init_app(app)
 
@@ -32,6 +33,25 @@ login_manager.login_view = 'login'
 @login_manager.user_loader
 def load_user(user_id):
     return db.session.get(User, int(user_id))
+
+
+# Add security headers to every response to protect against common browser-based attacks (OWASP A05)
+@app.after_request
+def set_security_headers(response):
+    response.headers['X-Frame-Options'] = 'DENY'  # Stops the app being embedded in iframes (clickjacking)
+    response.headers['X-Content-Type-Options'] = 'nosniff'  # Stops browsers guessing file types
+    response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'  # Limits URL info shared with third parties
+    response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'  # Forces HTTPS on live deployment
+    # Only allow scripts and styles from this app and the Bootstrap CDN
+    response.headers['Content-Security-Policy'] = (
+        "default-src 'self'; "
+        "script-src 'self' cdn.jsdelivr.net; "
+        "style-src 'self' cdn.jsdelivr.net; "
+        "font-src 'self' cdn.jsdelivr.net; "
+        "img-src 'self' data:; "
+        "object-src 'none';"
+    )
+    return response
 
 class RegisterForm(FlaskForm):
     username = StringField(validators=[
