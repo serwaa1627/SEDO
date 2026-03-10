@@ -6,6 +6,8 @@ from wtforms import StringField, PasswordField, SubmitField
 from wtforms.validators import InputRequired, Length, ValidationError, DataRequired, EqualTo
 from models import db, bcrypt, User, Ticket
 from dotenv import load_dotenv
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 import os
 import random
 
@@ -25,6 +27,8 @@ app.config['SESSION_COOKIE_SECURE'] = os.environ.get('FLASK_ENV') == 'production
 
 db.init_app(app)
 
+# Rate limiter using the requester's IP address to track attempts (OWASP A07)
+limiter = Limiter(get_remote_address, app=app, default_limits=[])
 
 login_manager = LoginManager(app)
 login_manager.login_view = 'login'
@@ -151,6 +155,7 @@ def dashboard():
     return render_template('dashboard.html', tickets=tickets)
 
 @app.route('/login', methods=['GET', 'POST'])
+@limiter.limit("5 per minute")  # Block brute force attacks - max 5 login attempts per minute (OWASP A07)
 def login():
     form = LoginForm()
     if form.validate_on_submit():
@@ -162,6 +167,12 @@ def login():
                 login_user(user)
                 return redirect(url_for('dashboard'))
     return render_template('login.html', form=form)
+
+@app.errorhandler(429)
+def too_many_requests(_):
+    # Shown when a user exceeds 5 login attempts in a minute
+    flash('Too many login attempts. Please wait a minute before trying again.', 'danger')
+    return render_template('login.html', form=LoginForm()), 429
 
 
 @app.route('/login-success')

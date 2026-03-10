@@ -1,0 +1,31 @@
+body {
+  background-color: #f8f9fa;
+}
+
+.login-container {
+  max-width: 400px;
+  margin: auto;
+  margin-top: 100px;
+  padding: 20px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);
+}
+
+.form-control {
+  border-radius: 5px;
+}
+
+.btn-primary {
+  width: 100%;
+}
+
+.signup-link {
+  display: block;
+  text-align: center;
+  margin-top: 10px;
+}
+
+.rate-limit-note {
+  font-size: 0.85rem;
+}
