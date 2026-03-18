@@ -344,10 +344,8 @@ def admin_delete_user(user_id):
     return redirect(url_for('admin_users'))
 
 
+with app.app_context():
+    db.create_all()
+
 if __name__ == "__main__":
-    with app.app_context():
-        # db.drop_all()
-        db.create_all()
-        if User.query.count() == 0 and Ticket.query.count() == 0:
-            bulk_seed()
     app.run()
